@@ -9,7 +9,7 @@ export default {
       const headers = {
         "Content-Type": "application/json",
         "Access-Control-Allow-Origin": "*", // Allow requests from any origin (or specify your domain)
-        "Access-Control-Allow-Methods": "GET, POST, OPTIONS", // Allow GET and POST methods
+        "Access-Control-Allow-Methods": "GET, POST", // Allow GET and POST methods
         "Access-Control-Allow-Headers": "Authorization", // Allow Authorization header
       };
 
@@ -58,24 +58,21 @@ export default {
       }
 
       // Handle GET /photos/:key (fetch photo)
-      if (request.method === "GET" && url.pathname.startsWith("/photos/")) {
-        const key = url.pathname.split("/photos/")[1];
-        const object = await env.PHOTO_BUCKET.get(key);
-
-        if (!object) {
-          return new Response("File not found", { status: 404 });
-        }
-
-        // Serve image with correct CORS and Content-Type headers
-        return new Response(object.body, {
-          headers: {
-            "Content-Type": object.httpMetadata?.contentType || "application/octet-stream",
-            "Access-Control-Allow-Origin": "*", // CORS header to allow images to be fetched from any origin
-            "Access-Control-Allow-Methods": "GET",
-            "Access-Control-Allow-Headers": "Authorization",
-          },
-        });
-      }
+		if (request.method === "GET" && url.pathname.startsWith("/photos/")) {
+			const key = url.pathname.split("/photos/")[1];
+			const object = await env.PHOTO_BUCKET.get(key);
+		
+			if (!object) {
+			return new Response("File not found", { status: 404 });
+			}
+		
+			return new Response(object.body, {
+			headers: {
+				"Content-Type": object.httpMetadata?.contentType || "application/octet-stream"
+			},
+			});
+		}
+  
 
       return new Response("Not Found", { status: 404, headers });
     } catch (error) {

@@ -4,6 +4,11 @@ main = "src/index.js"
 compatibility_date = "2024-12-24"
 compatibility_flags = ["nodejs_compat"]
 
+[[r2_buckets]]
+binding = "PHOTO_BUCKET"  # The reference name for your bucket
+bucket_name = "cf-photos-bucket"  # Your R2 bucket name
+preview_bucket_name = "cf-photos-bucket"  # Same for preview mode
+
 # Workers Logs
 # Docs: https://developers.cloudflare.com/workers/observability/logs/workers-logs/
 # Configuration: https://developers.cloudflare.com/workers/observability/logs/workers-logs/#enable-workers-logs
