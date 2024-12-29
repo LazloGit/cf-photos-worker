@@ -43,19 +43,24 @@ export default {
       }
 
       // Handle POST /upload (upload photo)
-      if (request.method === "POST" && url.pathname === "/upload") {
-        const formData = await request.formData();
-        const file = formData.get("file");
-
-        if (!file) {
-          return new Response("No file uploaded", { status: 400 });
+        if (request.method === "POST" && url.pathname === "/upload") {
+            const formData = await request.formData();
+            const file = formData.get("file");
+        
+            if (!file) {
+            return new Response("No file uploaded", { status: 400 });
+            }
+        
+            const key = `${Date.now()}-${file.name}`;
+            await env.PHOTO_BUCKET.put(key, file.stream());
+        
+            // Return the uploaded key in the response
+            return new Response(
+            JSON.stringify({ message: `File uploaded as ${key}`, key }),
+            { headers, status: 200 }
+            );
         }
-
-        const key = `${Date.now()}-${file.name}`;
-        await env.PHOTO_BUCKET.put(key, file.stream());
-
-        return new Response(`File uploaded as ${key}`, { status: 200 });
-      }
+  
 
       // Handle GET /photos/:key (fetch photo)
       if (request.method === "GET" && url.pathname.startsWith("/photos/")) {
