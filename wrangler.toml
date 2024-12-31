@@ -9,6 +9,11 @@ binding = "PHOTO_BUCKET"  # The reference name for your bucket
 bucket_name = "cf-photos-bucket"  # Your R2 bucket name
 preview_bucket_name = "cf-photos-bucket"  # Same for preview mode
 
+[[d1_databases]]
+binding = "PHOTO_DB" # Reference name for the database in the Worker
+database_name = "cf-photos-db" # Name of your D1 database
+database_id = "d2c9f425-a70e-4d7e-8883-fcc04d023ce1"
+
 # Workers Logs
 # Docs: https://developers.cloudflare.com/workers/observability/logs/workers-logs/
 # Configuration: https://developers.cloudflare.com/workers/observability/logs/workers-logs/#enable-workers-logs

@@ -5,22 +5,20 @@ export default {
     try {
       const url = new URL(request.url);
 
-      // Set CORS headers for local development
+      // Set CORS headers
       const headers = {
         "Content-Type": "application/json",
-        "Access-Control-Allow-Origin": "*", // Allow requests from any origin (or specify your domain)
-        "Access-Control-Allow-Methods": "GET, POST, OPTIONS", // Allow GET and POST methods
-        "Access-Control-Allow-Headers": "Authorization", // Allow Authorization header
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+        "Access-Control-Allow-Headers": "Authorization",
       };
 
-      // If it's a preflight request (OPTIONS), respond with CORS headers
+      // Handle OPTIONS preflight
       if (request.method === "OPTIONS") {
-        return new Response(null, {
-          headers,
-        });
+        return new Response(null, { headers });
       }
 
-      // Check for Authorization header
+      // Authorization check
       const authHeader = request.headers.get("Authorization");
       if (authHeader !== `Bearer ${API_KEY}`) {
         return new Response("Unauthorized", { status: 401, headers });
@@ -28,39 +26,37 @@ export default {
 
       // Handle GET /photos (list photos)
       if (url.pathname === "/photos" && request.method === "GET") {
-        const objects = [];
-        const objectList = await env.PHOTO_BUCKET.list(); // Await the result
+        // Fetch photos from R2 and metadata from D1
+        const objectList = await env.PHOTO_BUCKET.list();
+        const photoKeys = objectList.objects.map((obj) => obj.key);
 
-        if (objectList && objectList.objects) {
-          for (const object of objectList.objects) {
-            objects.push(object.key); // Push the object key (filename)
-          }
-        }
+        // Query D1 for metadata
+        const query = `SELECT * FROM images WHERE key IN (${photoKeys.map(() => '?').join(',')})`;
+        const metadata = await env.PHOTO_DB.prepare(query).bind(...photoKeys).all();
 
-        return new Response(JSON.stringify(objects), {
-          headers,
-        });
+        return new Response(JSON.stringify({ photos: photoKeys, metadata: metadata.results }), { headers });
       }
 
       // Handle POST /upload (upload photo)
-        if (request.method === "POST" && url.pathname === "/upload") {
-            const formData = await request.formData();
-            const file = formData.get("file");
-        
-            if (!file) {
-            return new Response("No file uploaded", { status: 400 });
-            }
-        
-            const key = `${Date.now()}-${file.name}`;
-            await env.PHOTO_BUCKET.put(key, file.stream());
-        
-            // Return the uploaded key in the response
-            return new Response(
-            JSON.stringify({ message: `File uploaded as ${key}`, key }),
-            { headers, status: 200 }
-            );
+      if (request.method === "POST" && url.pathname === "/upload") {
+        const formData = await request.formData();
+        const file = formData.get("file");
+        const userId = formData.get("userId"); // Add user association
+        const albumId = formData.get("albumId") || null; // Optional album ID
+
+        if (!file) {
+          return new Response("No file uploaded", { status: 400 });
         }
-  
+
+        const key = `${Date.now()}-${file.name}`;
+        await env.PHOTO_BUCKET.put(key, file.stream());
+
+        // Insert metadata into D1
+        const insertQuery = `INSERT INTO images (key, user_id, album_id, created_at) VALUES (?, ?, ?, ?)`;
+        await env.PHOTO_DB.prepare(insertQuery).bind(key, userId, albumId, new Date().toISOString()).run();
+
+        return new Response(JSON.stringify({ message: `File uploaded as ${key}`, key }), { headers });
+      }
 
       // Handle GET /photos/:key (fetch photo)
       if (request.method === "GET" && url.pathname.startsWith("/photos/")) {
@@ -71,11 +67,10 @@ export default {
           return new Response("File not found", { status: 404 });
         }
 
-        // Serve image with correct CORS and Content-Type headers
         return new Response(object.body, {
           headers: {
             "Content-Type": object.httpMetadata?.contentType || "application/octet-stream",
-            "Access-Control-Allow-Origin": "*", // CORS header to allow images to be fetched from any origin
+            "Access-Control-Allow-Origin": "*",
             "Access-Control-Allow-Methods": "GET",
             "Access-Control-Allow-Headers": "Authorization",
           },
@@ -84,7 +79,7 @@ export default {
 
       return new Response("Not Found", { status: 404, headers });
     } catch (error) {
-      console.error("Worker Error:", error); // Log error for debugging
+      console.error("Worker Error:", error);
       return new Response("Internal Server Error", { status: 500 });
     }
   },
