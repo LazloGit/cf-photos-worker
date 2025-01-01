@@ -5,57 +5,83 @@ export default {
     try {
       const url = new URL(request.url);
 
-      // Set CORS headers
+      // Set CORS headers for local development
       const headers = {
         "Content-Type": "application/json",
-        "Access-Control-Allow-Origin": "*",
-        "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-        "Access-Control-Allow-Headers": "Authorization",
+        "Access-Control-Allow-Origin": "*", // Allow requests from any origin (or specify your domain)
+        "Access-Control-Allow-Methods": "GET, POST, OPTIONS", // Allow GET and POST methods
+        "Access-Control-Allow-Headers": "Authorization", // Allow Authorization header
       };
 
-      // Handle OPTIONS preflight
+      // If it's a preflight request (OPTIONS), respond with CORS headers
       if (request.method === "OPTIONS") {
         return new Response(null, { headers });
       }
 
-      // Authorization check
+      // Check for Authorization header
       const authHeader = request.headers.get("Authorization");
       if (authHeader !== `Bearer ${API_KEY}`) {
         return new Response("Unauthorized", { status: 401, headers });
       }
 
-      // Handle GET /photos (list photos)
-      if (url.pathname === "/photos" && request.method === "GET") {
-        // Fetch photos from R2 and metadata from D1
-        const objectList = await env.PHOTO_BUCKET.list();
-        const photoKeys = objectList.objects.map((obj) => obj.key);
+      // Handle GET /users (list users)
+      if (url.pathname === "/users" && request.method === "GET") {
+        const query = "SELECT id, username FROM users";
+        const { results } = await env.PHOTO_DB.prepare(query).all();
 
-        // Query D1 for metadata
-        const query = `SELECT * FROM images WHERE key IN (${photoKeys.map(() => '?').join(',')})`;
-        const metadata = await env.PHOTO_DB.prepare(query).bind(...photoKeys).all();
-
-        return new Response(JSON.stringify({ photos: photoKeys, metadata: metadata.results }), { headers });
+        return new Response(JSON.stringify(results), { headers });
       }
 
-      // Handle POST /upload (upload photo)
+      // Handle GET /albums (list albums)
+      if (url.pathname === "/albums" && request.method === "GET") {
+        const query = `
+          SELECT albums.id, albums.name, users.username 
+          FROM albums 
+          INNER JOIN users ON albums.user_id = users.id
+        `;
+        const { results } = await env.PHOTO_DB.prepare(query).all();
+
+        return new Response(JSON.stringify(results), { headers });
+      }
+
+      // Handle GET /photos (list photos)
+      if (url.pathname === "/photos" && request.method === "GET") {
+        const query = `
+          SELECT images.id, images.key, users.username, albums.name AS album_name, images.created_at 
+          FROM images
+          INNER JOIN users ON images.user_id = users.id
+          LEFT JOIN albums ON images.album_id = albums.id
+        `;
+        const { results } = await env.PHOTO_DB.prepare(query).all();
+
+        return new Response(JSON.stringify(results), { headers });
+      }
+
+      // Handle other existing endpoints (upload, etc.)
       if (request.method === "POST" && url.pathname === "/upload") {
         const formData = await request.formData();
         const file = formData.get("file");
-        const userId = formData.get("userId"); // Add user association
-        const albumId = formData.get("albumId") || null; // Optional album ID
+        const userId = formData.get("user_id");
+        const albumId = formData.get("album_id");
 
-        if (!file) {
-          return new Response("No file uploaded", { status: 400 });
+        if (!file || !userId || !albumId) {
+          return new Response("Invalid data", { status: 400 });
         }
 
         const key = `${Date.now()}-${file.name}`;
         await env.PHOTO_BUCKET.put(key, file.stream());
 
-        // Insert metadata into D1
-        const insertQuery = `INSERT INTO images (key, user_id, album_id, created_at) VALUES (?, ?, ?, ?)`;
-        await env.PHOTO_DB.prepare(insertQuery).bind(key, userId, albumId, new Date().toISOString()).run();
+        // Insert the image metadata into the D1 database
+        const query = `
+          INSERT INTO images (id, key, user_id, album_id)
+          VALUES (?, ?, ?, ?)
+        `;
+        await env.PHOTO_DB.prepare(query).bind(crypto.randomUUID(), key, userId, albumId).run();
 
-        return new Response(JSON.stringify({ message: `File uploaded as ${key}`, key }), { headers });
+        return new Response(
+          JSON.stringify({ message: "File uploaded successfully", key }),
+          { headers }
+        );
       }
 
       // Handle GET /photos/:key (fetch photo)
@@ -79,7 +105,7 @@ export default {
 
       return new Response("Not Found", { status: 404, headers });
     } catch (error) {
-      console.error("Worker Error:", error);
+      console.error("Worker Error:", error); // Log error for debugging
       return new Response("Internal Server Error", { status: 500 });
     }
   },
