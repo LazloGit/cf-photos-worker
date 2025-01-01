@@ -9,7 +9,7 @@ export default {
       const headers = {
         "Content-Type": "application/json",
         "Access-Control-Allow-Origin": "*", // Allow requests from any origin (or specify your domain)
-        "Access-Control-Allow-Methods": "GET, POST, OPTIONS", // Allow GET and POST methods
+        "Access-Control-Allow-Methods": "GET, POST, DELETE, OPTIONS", // Allow GET, POST, DELETE methods
         "Access-Control-Allow-Headers": "Authorization", // Allow Authorization header
       };
 
@@ -44,8 +44,8 @@ export default {
         return new Response(JSON.stringify(results), { headers });
       }
 
-      // Handle GET /photos (list photos)
-      if (url.pathname === "/photos" && request.method === "GET") {
+       // Handle GET /photos (list photos)
+       if (url.pathname === "/photos" && request.method === "GET") {
         const query = `
           SELECT images.id, images.key, users.username, albums.name AS album_name, images.created_at 
           FROM images
@@ -55,6 +55,51 @@ export default {
         const { results } = await env.PHOTO_DB.prepare(query).all();
 
         return new Response(JSON.stringify(results), { headers });
+      }
+
+      // Handle POST /albums (create album)
+      if (url.pathname === "/albums" && request.method === "POST") {
+        try {
+          const { name, user_id } = await request.json();
+      
+          if (!name || !user_id) {
+            return new Response("Invalid data", { status: 400 });
+          }
+      
+          const query = "INSERT INTO albums (id, name, user_id) VALUES (?, ?, ?)";
+          await env.PHOTO_DB.prepare(query)
+            .bind(crypto.randomUUID(), name, user_id)
+            .run();
+      
+          return new Response(JSON.stringify({ message: "Album created successfully" }), {
+            headers,
+          });
+        } catch (err) {
+          console.error("Error in POST /albums:", err);
+          return new Response("Internal Server Error", { status: 500 });
+        }
+      }
+      
+
+      // Handle DELETE /albums/:id (delete album)
+      if (url.pathname.startsWith("/albums/") && request.method === "DELETE") {
+        const albumId = url.pathname.split("/albums/")[1];
+
+        if (!albumId) {
+          return new Response("Album ID is required", { status: 400 });
+        }
+
+        // Delete album from the database
+        const query = "DELETE FROM albums WHERE id = ?";
+        const result = await env.PHOTO_DB.prepare(query).bind(albumId).run();
+
+        if (result.changes === 0) {
+          return new Response("Album not found", { status: 404 });
+        }
+
+        return new Response(JSON.stringify({ message: "Album deleted successfully" }), {
+          headers,
+        });
       }
 
       // Handle other existing endpoints (upload, etc.)
@@ -71,7 +116,6 @@ export default {
         const key = `${Date.now()}-${file.name}`;
         await env.PHOTO_BUCKET.put(key, file.stream());
 
-        // Insert the image metadata into the D1 database
         const query = `
           INSERT INTO images (id, key, user_id, album_id)
           VALUES (?, ?, ?, ?)
@@ -105,7 +149,7 @@ export default {
 
       return new Response("Not Found", { status: 404, headers });
     } catch (error) {
-      console.error("Worker Error:", error); // Log error for debugging
+      console.error("Worker Error:", error);
       return new Response("Internal Server Error", { status: 500 });
     }
   },
