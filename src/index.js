@@ -35,7 +35,7 @@ export default {
       // Handle GET /albums (list albums)
       if (url.pathname === "/albums" && request.method === "GET") {
         const query = `
-          SELECT albums.id, albums.name, users.username 
+          SELECT albums.id, albums.name, users.username, albums.created_at 
           FROM albums 
           INNER JOIN users ON albums.user_id = users.id
         `;
