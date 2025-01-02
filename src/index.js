@@ -8,10 +8,10 @@ export default {
       // Set CORS headers for local development
       const headers = {
         "Content-Type": "application/json",
-        "Access-Control-Allow-Origin": "*", // Allow requests from any origin (or specify your domain)
-        "Access-Control-Allow-Methods": "GET, POST, DELETE, OPTIONS", // Allow GET, POST, DELETE methods
-        "Access-Control-Allow-Headers": "Authorization", // Allow Authorization header
-      };
+        "Access-Control-Allow-Origin": "*", // Allow requests from any origin
+        "Access-Control-Allow-Methods": "GET, POST, DELETE, OPTIONS", // Allowed methods
+        "Access-Control-Allow-Headers": "Authorization, Content-Type", // Include Content-Type
+      };      
 
       // If it's a preflight request (OPTIONS), respond with CORS headers
       if (request.method === "OPTIONS") {
@@ -66,40 +66,48 @@ export default {
             return new Response("Invalid data", { status: 400 });
           }
       
+          const id = crypto.randomUUID(); // Generate the album ID
           const query = "INSERT INTO albums (id, name, user_id) VALUES (?, ?, ?)";
-          await env.PHOTO_DB.prepare(query)
-            .bind(crypto.randomUUID(), name, user_id)
-            .run();
+          await env.PHOTO_DB.prepare(query).bind(id, name, user_id).run();
       
-          return new Response(JSON.stringify({ message: "Album created successfully" }), {
-            headers,
-          });
+          // Fetch the inserted row to return full data
+          const fetchQuery = "SELECT id, name, user_id, created_at FROM albums WHERE id = ?";
+          const results = await env.PHOTO_DB.prepare(fetchQuery).bind(id).first(); // Use the same `id`
+      
+          return new Response(JSON.stringify(results), { headers });
         } catch (err) {
           console.error("Error in POST /albums:", err);
           return new Response("Internal Server Error", { status: 500 });
         }
       }
       
+      
 
       // Handle DELETE /albums/:id (delete album)
       if (url.pathname.startsWith("/albums/") && request.method === "DELETE") {
-        const albumId = url.pathname.split("/albums/")[1];
-
-        if (!albumId) {
-          return new Response("Album ID is required", { status: 400 });
+        try {
+          const albumId = url.pathname.split("/albums/")[1];
+      
+          if (!albumId) {
+            return new Response("Album ID is required", { status: 400, headers });
+          }
+      
+          // Delete album from the database
+          const query = "DELETE FROM albums WHERE id = ?";
+          const result = await env.PHOTO_DB.prepare(query).bind(albumId).run();
+      
+          if (result.changes === 0) {
+            return new Response("Album not found", { status: 404, headers });
+          }
+      
+          return new Response(
+            JSON.stringify({ message: "Album deleted successfully" }),
+            { headers }
+          );
+        } catch (err) {
+          console.error("Error in DELETE /albums/:id:", err);
+          return new Response("Internal Server Error", { status: 500, headers });
         }
-
-        // Delete album from the database
-        const query = "DELETE FROM albums WHERE id = ?";
-        const result = await env.PHOTO_DB.prepare(query).bind(albumId).run();
-
-        if (result.changes === 0) {
-          return new Response("Album not found", { status: 404 });
-        }
-
-        return new Response(JSON.stringify({ message: "Album deleted successfully" }), {
-          headers,
-        });
       }
 
       // Handle other existing endpoints (upload, etc.)
