@@ -155,6 +155,58 @@ export default {
         });
       }
 
+      if (url.pathname === "/tags" && request.method === "GET") {
+        // Fetch all tags
+        const query = "SELECT * FROM tags";
+        const tags = await env.PHOTO_DB.prepare(query).all();
+        return new Response(JSON.stringify(tags), { status: 200, headers: { "Content-Type": "application/json" } });
+      }
+  
+      if (url.pathname === "/tags" && request.method === "POST") {
+        // Add tags to an image
+        const { image_id, tags } = await request.json();
+  
+        if (!image_id || !tags?.length) {
+          return new Response("Image ID and tags are required", { status: 400 });
+        }
+  
+        const tagInsert = "INSERT OR IGNORE INTO tags (id, name) VALUES (?, ?)";
+        const tagRelInsert = "INSERT INTO image_tags (image_id, tag_id) VALUES (?, ?)";
+  
+        if (!Array.isArray(tags)) {
+          tags = [tags];
+        }
+        
+        for (const tag of tags) {
+          const tagId = `tag-${crypto.randomUUID()}`;
+          await env.PHOTO_DB.prepare(tagInsert).bind(tagId, tag).run();
+  
+          const tagRow = await env.PHOTO_DB.prepare("SELECT id FROM tags WHERE name = ?").bind(tag).first();
+          if (tagRow) {
+            await env.PHOTO_DB.prepare(tagRelInsert).bind(image_id, tagRow.id).run();
+          }
+        }
+  
+        return new Response(JSON.stringify({ message: "Tags added successfully" }), { status: 200 });
+      }
+  
+      if (url.pathname.startsWith("/search") && request.method === "GET") {
+        // Search images by tag
+        const tag = url.searchParams.get("tag");
+        if (!tag) {
+          return new Response("Tag is required", { status: 400 });
+        }
+  
+        const query = `
+          SELECT images.* FROM images
+          JOIN image_tags ON images.id = image_tags.image_id
+          JOIN tags ON image_tags.tag_id = tags.id
+          WHERE tags.name = ?`;
+        const images = await env.PHOTO_DB.prepare(query).bind(tag).all();
+  
+        return new Response(JSON.stringify(images), { status: 200, headers: { "Content-Type": "application/json" } });
+      }
+
       return new Response("Not Found", { status: 404, headers });
     } catch (error) {
       console.error("Worker Error:", error);
