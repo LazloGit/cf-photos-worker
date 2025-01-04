@@ -172,10 +172,6 @@ export default {
   
         const tagInsert = "INSERT OR IGNORE INTO tags (id, name) VALUES (?, ?)";
         const tagRelInsert = "INSERT INTO image_tags (image_id, tag_id) VALUES (?, ?)";
-  
-        if (!Array.isArray(tags)) {
-          tags = [tags];
-        }
         
         for (const tag of tags) {
           const tagId = `tag-${crypto.randomUUID()}`;
@@ -191,20 +187,72 @@ export default {
       }
   
       if (url.pathname.startsWith("/search") && request.method === "GET") {
-        // Search images by tag
         const tag = url.searchParams.get("tag");
+      
         if (!tag) {
-          return new Response("Tag is required", { status: 400 });
+          return new Response("Tag is required", {
+            status: 400,
+            headers, // Add CORS headers here
+          });
         }
-  
-        const query = `
-          SELECT images.* FROM images
-          JOIN image_tags ON images.id = image_tags.image_id
-          JOIN tags ON image_tags.tag_id = tags.id
-          WHERE tags.name = ?`;
-        const images = await env.PHOTO_DB.prepare(query).bind(tag).all();
-  
-        return new Response(JSON.stringify(images), { status: 200, headers: { "Content-Type": "application/json" } });
+      
+        try {
+          const query = `
+            SELECT images.* FROM images
+            JOIN image_tags ON images.id = image_tags.image_id
+            JOIN tags ON image_tags.tag_id = tags.id
+            WHERE tags.name = ?`;
+          const images = await env.PHOTO_DB.prepare(query).bind(tag).all();
+      
+          return new Response(JSON.stringify(images), { status: 200, headers });
+        } catch (err) {
+          console.error("Error in /search:", err);
+          return new Response("Internal Server Error", {
+            status: 500,
+            headers, // Add CORS headers here
+          });
+        }
+      }
+
+      if (url.pathname === "/images-with-tags" && request.method === "GET") {
+        try {
+          // SQL query to fetch images and their tags
+          const query = `
+            SELECT images.id AS image_id, images.key, 
+                  GROUP_CONCAT(tags.name) AS tags
+            FROM images
+            LEFT JOIN image_tags ON images.id = image_tags.image_id
+            LEFT JOIN tags ON image_tags.tag_id = tags.id
+            GROUP BY images.id
+          `;
+
+          const results = await env.PHOTO_DB.prepare(query).all();
+
+          if (!results.results) {
+            return new Response(
+              JSON.stringify({ message: "No images found." }),
+              { status: 404, headers }
+            );
+          }
+
+          // Format the response: tags should be an array
+          const formattedResults = results.results.map((row) => ({
+            id: row.image_id,
+            key: row.key,
+            tags: row.tags ? row.tags.split(",") : [],
+          }));
+
+          return new Response(JSON.stringify(formattedResults), {
+            status: 200,
+            headers,
+          });
+        } catch (err) {
+          console.error("Error in GET /images-with-tags:", err);
+          return new Response("Internal Server Error", {
+            status: 500,
+            headers,
+          });
+        }
       }
 
       return new Response("Not Found", { status: 404, headers });
