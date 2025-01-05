@@ -63,7 +63,7 @@ export default {
           const { name, user_id } = await request.json();
       
           if (!name || !user_id) {
-            return new Response("Invalid data", { status: 400 });
+            return new Response("Invalid data", { status: 400, headers });
           }
       
           const id = crypto.randomUUID(); // Generate the album ID
@@ -77,7 +77,7 @@ export default {
           return new Response(JSON.stringify(results), { headers });
         } catch (err) {
           console.error("Error in POST /albums:", err);
-          return new Response("Internal Server Error", { status: 500 });
+          return new Response("Internal Server Error", { status: 500, headers });
         }
       }
       
@@ -110,7 +110,7 @@ export default {
         }
       }
 
-      // Handle other existing endpoints (upload, etc.)
+      // Image upload 
       if (request.method === "POST" && url.pathname === "/upload") {
         const formData = await request.formData();
         const file = formData.get("file");
@@ -118,7 +118,7 @@ export default {
         const albumId = formData.get("album_id");
 
         if (!file || !userId || !albumId) {
-          return new Response("Invalid data", { status: 400 });
+          return new Response("Invalid data", { status: 400, headers });
         }
 
         const key = `${Date.now()}-${file.name}`;
@@ -142,7 +142,7 @@ export default {
         const object = await env.PHOTO_BUCKET.get(key);
 
         if (!object) {
-          return new Response("File not found", { status: 404 });
+          return new Response("File not found", { status: 404, headers });
         }
 
         return new Response(object.body, {
@@ -167,7 +167,7 @@ export default {
         const { image_id, tags } = await request.json();
   
         if (!image_id || !tags?.length) {
-          return new Response("Image ID and tags are required", { status: 400 });
+          return new Response("Image ID and tags are required", { status: 400, headers });
         }
   
         const tagInsert = "INSERT OR IGNORE INTO tags (id, name) VALUES (?, ?)";
@@ -183,7 +183,7 @@ export default {
           }
         }
   
-        return new Response(JSON.stringify({ message: "Tags added successfully" }), { status: 200 });
+        return new Response(JSON.stringify({ message: "Tags added successfully" }), { status: 200, headers });
       }
   
       if (url.pathname.startsWith("/search") && request.method === "GET") {
@@ -258,7 +258,7 @@ export default {
       return new Response("Not Found", { status: 404, headers });
     } catch (error) {
       console.error("Worker Error:", error);
-      return new Response("Internal Server Error", { status: 500 });
+      return new Response("Internal Server Error", { status: 500, headers });
     }
   },
 };
