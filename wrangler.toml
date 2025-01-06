@@ -1,8 +1,9 @@
 #:schema node_modules/wrangler/config-schema.json
 name = "cf-photos-worker"
-main = "src/index.js"
+main = "src/worker/worker.ts"
 compatibility_date = "2024-12-24"
 compatibility_flags = ["nodejs_compat"]
+assets = { directory = "./dist", binding = "ASSETS" }
 
 [[r2_buckets]]
 binding = "PHOTO_BUCKET"  # The reference name for your bucket
