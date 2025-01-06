@@ -49,9 +49,9 @@ function ImagesPage() {
     })
       .then((response) => {
         if (!response.ok) {
-          throw new Error("Failed to add tag.");
+          throw new Error(`Failed to add tag: ${response.status}`);
         }
-        return response.json();
+        return response.json().catch(() => ({})); // Fallback to empty object
       })
       .then(() => {
         setImages((prevImages) =>
@@ -64,12 +64,15 @@ function ImagesPage() {
         setTagInputs((prevInputs) => ({ ...prevInputs, [imageId]: "" }));
         setError("");
       })
-      .catch((error) => setError(error.message));
+      .catch((error) => {
+        console.error("Error adding tag:", error);
+        setError(error.message);
+      });
   };
 
   return (
     <div className="page-content">
-      <h1>Manage Images</h1>
+      <h1>Manage Tags</h1>
       {error && <p style={{ color: "red" }}>{error}</p>}
       <ul>
         {images.map((image) => (

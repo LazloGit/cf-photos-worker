@@ -8,13 +8,20 @@ type SearchResult = {
   tags: string[];
 };
 
+type ApiResponseItem = {
+  id: string;
+  key: string;
+};
+
 function SearchPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const searchImages = () => {
+  const searchImages = (e?: React.FormEvent) => {
+    if (e) e.preventDefault(); // Prevent form submission reload
+
     if (!searchQuery.trim()) {
       setError("Search query cannot be empty.");
       return;
@@ -40,7 +47,7 @@ function SearchPage() {
       .then((data) => {
         if (data.success) {
           // Access the `results` array from the response
-          const results = data.results.map((item: any) => ({
+          const results = data.results.map((item: ApiResponseItem) => ({
             id: item.id,
             key: item.key,
             tags: [], // Add an empty array for tags since they're not provided
@@ -62,15 +69,22 @@ function SearchPage() {
     <div className="page-content">
       <h1>Search Images</h1>
       {error && <p style={{ color: "red" }}>{error}</p>}
-      <input
-        type="text"
-        value={searchQuery}
-        onChange={(e) => setSearchQuery(e.target.value)}
-        placeholder="Search by tags (e.g., dog, vacation)"
-      />
-      <button className="add-btn" onClick={searchImages} disabled={!searchQuery.trim()}>
-        Search
-      </button>
+      <form onSubmit={searchImages}>
+        <input
+          type="text"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          placeholder="Search by tags (e.g., dog, vacation)"
+        />
+        <button
+            className="add-btn"
+            type="submit"
+            disabled={!searchQuery.trim()}
+          >
+          Search
+        </button>
+      </form>
+
       {loading && <p>Loading...</p>}
       {searchResults.length === 0 && !loading && !error && (
         <p>No images found for the search query.</p>

@@ -16,7 +16,7 @@ function App() {
           <Link to="/">Gallery</Link>
           <Link to="/albums">Albums</Link>
           <Link to="/upload">Upload</Link>
-          <Link to="/images">Images</Link>
+          <Link to="/images">Manage Tags</Link>
           <Link to="/search">Search</Link>
         </nav>
 
