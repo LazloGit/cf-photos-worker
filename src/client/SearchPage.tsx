@@ -71,7 +71,7 @@ function SearchPage() {
       {error && <p style={{ color: "red" }}>{error}</p>}
       <form onSubmit={searchImages}>
         <input
-          type="text"
+          type="text" className="wide-input"
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           placeholder="Search by tags (e.g., dog, vacation)"

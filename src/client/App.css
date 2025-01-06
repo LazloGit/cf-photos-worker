@@ -150,3 +150,8 @@ button.delete-btn:hover {
   padding: 6px 12px;
   font-size: 14px;
 }
+
+.wide-input {
+  width: 400px; /* Adjust width as needed */
+  padding: 10px; /* Optional: Add padding for better UX */
+}
