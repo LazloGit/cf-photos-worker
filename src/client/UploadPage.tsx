@@ -15,11 +15,11 @@ function UploadPage() {
     async function fetchMetadata() {
       try {
         const userResponse = await fetch(
-          "https://cf-photos-worker.paragio.workers.dev/users",
+          "https://cf-photos-worker.paragio.workers.dev/api/users",
           { headers: { Authorization: `Bearer ${authToken}` } }
         );
         const albumResponse = await fetch(
-          "https://cf-photos-worker.paragio.workers.dev/albums",
+          "https://cf-photos-worker.paragio.workers.dev/api/albums",
           { headers: { Authorization: `Bearer ${authToken}` } }
         );
 
@@ -60,7 +60,7 @@ function UploadPage() {
 
     try {
       const response = await fetch(
-        "https://cf-photos-worker.paragio.workers.dev/upload",
+        "https://cf-photos-worker.paragio.workers.dev/api/upload",
         {
           method: "POST",
           headers: {

@@ -29,7 +29,7 @@ function SearchPage() {
 
     setLoading(true);
     fetch(
-      `https://cf-photos-worker.paragio.workers.dev/search?tag=${encodeURIComponent(
+      `https://cf-photos-worker.paragio.workers.dev/api/search?tag=${encodeURIComponent(
         searchQuery
       )}`,
       {

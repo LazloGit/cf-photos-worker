@@ -15,7 +15,7 @@ function ImagesPage() {
 
   // Fetch images with tags
   useEffect(() => {
-    fetch("https://cf-photos-worker.paragio.workers.dev/images-with-tags", {
+    fetch("https://cf-photos-worker.paragio.workers.dev/api/images-with-tags", {
       headers: {
         Authorization: `Bearer ${authToken}`,
       },
@@ -39,7 +39,7 @@ function ImagesPage() {
       return;
     }
 
-    fetch(`https://cf-photos-worker.paragio.workers.dev/tags`, {
+    fetch(`https://cf-photos-worker.paragio.workers.dev/api/tags`, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${authToken}`,

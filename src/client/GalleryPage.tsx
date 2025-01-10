@@ -18,7 +18,7 @@ function GalleryPage() {
 
   // Fetch the list of photos
   useEffect(() => {
-    fetch("https://cf-photos-worker.paragio.workers.dev/photos", {
+    fetch("https://cf-photos-worker.paragio.workers.dev/api/photos", {
       headers: {
         Authorization: `Bearer ${authToken}`,
       },
@@ -31,7 +31,7 @@ function GalleryPage() {
   // Fetch images and create Blob URLs
   useEffect(() => {
     photos.forEach((photo) => {
-      fetch(`https://cf-photos-worker.paragio.workers.dev/photos/${photo.key}`, {
+      fetch(`https://cf-photos-worker.paragio.workers.dev/api/photos/${photo.key}`, {
         headers: {
           Authorization: `Bearer ${authToken}`,
         },

@@ -23,7 +23,7 @@ function AlbumsPage() {
 
   // Fetch albums
   useEffect(() => {
-    fetch("https://cf-photos-worker.paragio.workers.dev/albums", {
+    fetch("https://cf-photos-worker.paragio.workers.dev/api/albums", {
       headers: {
         Authorization: `Bearer ${authToken}`,
       },
@@ -35,7 +35,7 @@ function AlbumsPage() {
 
   // Fetch users
   useEffect(() => {
-    fetch("https://cf-photos-worker.paragio.workers.dev/users", {
+    fetch("https://cf-photos-worker.paragio.workers.dev/api/users", {
       headers: {
         Authorization: `Bearer ${authToken}`,
       },
@@ -52,7 +52,7 @@ function AlbumsPage() {
       return;
     }
 
-    fetch("https://cf-photos-worker.paragio.workers.dev/albums", {
+    fetch("https://cf-photos-worker.paragio.workers.dev/api/albums", {
       method: "POST",
       headers: {
         Authorization: `Bearer ${authToken}`,
@@ -80,7 +80,7 @@ function AlbumsPage() {
 
   // Delete an album
   const deleteAlbum = (albumId: string) => {
-    fetch(`https://cf-photos-worker.paragio.workers.dev/albums/${albumId}`, {
+    fetch(`https://cf-photos-worker.paragio.workers.dev/api/albums/${albumId}`, {
       method: "DELETE",
       headers: {
         Authorization: `Bearer ${authToken}`,
