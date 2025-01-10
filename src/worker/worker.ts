@@ -170,7 +170,7 @@ async function handleApiRequest(request: Request, env: Env, ctx: ExecutionContex
 			// Extract tags (filter predictions based on a confidence threshold)
 			const tags = predictions
 				.filter(prediction => prediction.score >= 0.01) // Adjust threshold as needed
-				.map(prediction => prediction.label);
+				.map(prediction => prediction.label.toLowerCase());
 
 			console.log('Filtered predictions:', predictions);
 			console.log('Extracted tags:', tags.length, tags);
