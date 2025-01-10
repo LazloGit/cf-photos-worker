@@ -80,6 +80,9 @@ function GalleryPage() {
             />
             {/* Display album name and created date */}
             <p style={{ fontSize: "0.8rem", textAlign: "center" }}>
+              {photo.album_name ? `Name: ${photo.key}` : "No Name"}
+            </p>
+            <p style={{ fontSize: "0.8rem", textAlign: "center" }}>
               {photo.album_name ? `Album: ${photo.album_name}` : "No Album"}
             </p>
             <p style={{ fontSize: "0.8rem", textAlign: "center" }}>

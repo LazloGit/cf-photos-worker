@@ -1,4 +1,5 @@
 const API_KEY = 'key7SBVpw5HtvATSm'; // Set your API key here
+const WORKERS_AI_API_TOKEN = 'XKEsUF7KR6GE3y8PFY8Nd3WFaOTz5TKoW_GvFL3S'; // Set your AI API token here
 const API_PREFIX = "/api/";
 
 export default {
@@ -17,20 +18,19 @@ export default {
 }>;
 
 async function handleApiRequest(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
+	// Set CORS headers for local development
+	const headers = {
+		'Content-Type': 'application/json',
+		'Access-Control-Allow-Origin': '*', // Allow requests from any origin
+		'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS', // Allowed methods
+		'Access-Control-Allow-Headers': 'Authorization, Content-Type', // Include Content-Type
+	};
+	
 	try {
 		const url = new URL(request.url);
-		const apiPath = url.pathname.slice(API_PREFIX.length - 1); 
+		const apiPath = url.pathname.slice(API_PREFIX.length - 1);
 
 		console.log('API Path:', apiPath);
-
-
-		// Set CORS headers for local development
-		const headers = {
-			'Content-Type': 'application/json',
-			'Access-Control-Allow-Origin': '*', // Allow requests from any origin
-			'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS', // Allowed methods
-			'Access-Control-Allow-Headers': 'Authorization, Content-Type', // Include Content-Type
-		};
 
 		// If it's a preflight request (OPTIONS), respond with CORS headers
 		if (request.method === 'OPTIONS') {
@@ -124,7 +124,7 @@ async function handleApiRequest(request: Request, env: Env, ctx: ExecutionContex
 			}
 		}
 
-		// Image upload
+		// Image upload with AI-based tag generation
 		if (request.method === 'POST' && apiPath === '/upload') {
 			const formData = await request.formData();
 			const file = formData.get('file');
@@ -138,14 +138,77 @@ async function handleApiRequest(request: Request, env: Env, ctx: ExecutionContex
 			const key = `${Date.now()}-${file.name}`;
 			await env.PHOTO_BUCKET.put(key, file.stream());
 
+			const imageId = crypto.randomUUID();
 			const query = `
-          INSERT INTO images (id, key, user_id, album_id)
-          VALUES (?, ?, ?, ?)
-        `;
-			await env.PHOTO_DB.prepare(query).bind(crypto.randomUUID(), key, userId, albumId).run();
+				INSERT INTO images (id, key, user_id, album_id)
+				VALUES (?, ?, ?, ?)
+			`;
+			await env.PHOTO_DB.prepare(query).bind(imageId, key, userId, albumId).run();
 
-			return new Response(JSON.stringify({ message: 'File uploaded successfully', key }), { headers });
+			// Pass the uploaded file to ResNet-50 for image classification
+			const aiResponse = await fetch('https://api.cloudflare.com/client/v4/accounts/a5dd8a5db90c0842adde8d76b85c782d/ai/run/@cf/microsoft/resnet-50', {
+
+				method: 'POST',
+				body: file.stream(), // Send the image as a stream
+				headers: {
+					'Authorization': `Bearer ${WORKERS_AI_API_TOKEN}`, 
+					'Content-Type': 'application/octet-stream',
+				},
+			});
+
+			if (!aiResponse.ok) {
+				console.error('AI model call failed:', await aiResponse.text());
+				return new Response(JSON.stringify({ message: 'File uploaded, but AI tagging failed' }), { headers });
+			}
+
+			const aiResult = await aiResponse.json();
+			const predictions = aiResult.result || [];
+
+			console.log('AI model response:', aiResult);
+			console.log('Predictions extracted:', predictions);
+
+			// Extract tags (filter predictions based on a confidence threshold)
+			const tags = predictions
+				.filter(prediction => prediction.score >= 0.01) // Adjust threshold as needed
+				.map(prediction => prediction.label);
+
+			console.log('Filtered predictions:', predictions);
+			console.log('Extracted tags:', tags.length, tags);
+			
+			console.log('AI model tags added:', tags.length, tags);
+
+			  
+
+			// Store tags in the database
+			if (tags.length > 0) {
+				console.log(`Saving ${tags.length} tags to the database:`, tags);
+
+				const tagInsert = 'INSERT OR IGNORE INTO tags (id, name) VALUES (?, ?)';
+				const tagRelInsert = 'INSERT INTO image_tags (image_id, tag_id) VALUES (?, ?)';
+
+				for (const tag of tags) {
+					const tagId = `tag-${crypto.randomUUID()}`;
+					await env.PHOTO_DB.prepare(tagInsert).bind(tagId, tag).run();
+
+					const tagRow = await env.PHOTO_DB.prepare('SELECT id FROM tags WHERE name = ?').bind(tag).first();
+					if (tagRow) {
+						await env.PHOTO_DB.prepare(tagRelInsert).bind(imageId, tagRow.id).run();
+					}
+				}
+			} else {
+				console.log('No tags to save.');
+			}
+
+			return new Response(
+				JSON.stringify({
+					message: 'File uploaded successfully with AI-generated tags',
+					key,
+					tags
+				}),
+				{ headers }
+			);
 		}
+
 
 		// Handle GET /photos/:key (fetch photo)
 		if (request.method === 'GET' && apiPath.startsWith('/photos/')) {
@@ -271,16 +334,16 @@ async function handleApiRequest(request: Request, env: Env, ctx: ExecutionContex
 }
 
 async function handleStaticOrOtherRequest(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
-    const url = new URL(request.url);
+	const url = new URL(request.url);
 
-    // Log for debugging
-    console.log('Non-API request received:', url.pathname);
+	// Log for debugging
+	console.log('Non-API request received:', url.pathname);
 
-    // Serve index.html for frontend routes
-    if (!url.pathname.startsWith('/api/')) {
-        return fetch('https://cf-photos.pages.dev/index.html');
-    }
+	// Serve index.html for frontend routes
+	if (!url.pathname.startsWith('/api/')) {
+		return fetch('https://cf-photos.pages.dev/index.html');
+	}
 
-    // Default fallback
-    return new Response('Not Found', { status: 404 });
+	// Default fallback
+	return new Response('Not Found', { status: 404 });
 }
